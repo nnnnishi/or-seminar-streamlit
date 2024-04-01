@@ -11,7 +11,7 @@ slot_file = st.sidebar.file_uploader("カレンダー", type=["csv"])
 staff_file = st.sidebar.file_uploader("スタッフ", type=["csv"])
 
 # タブ
-tab3, tab2, tab1 = st.tabs(["スロット確認", "スタッフ確認", "シフト表作成"])
+tab3, tab2, tab1 = st.tabs(["カレンダー情報", "スタッフ情報", "シフト表作成"])
 
 # メイン画面
 with tab3:
