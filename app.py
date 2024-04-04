@@ -71,68 +71,49 @@ with tab1:
             x = pulp.LpVariable.dicts(
                 "x", (range(num_staff), range(num_slot)), cat="Binary"
             )
-            y_over = pulp.LpVariable.dicts("y_over", range(num_staff), cat="Binary")
-            y_under = pulp.LpVariable.dicts("y_under", range(num_staff), cat="Binary")
-            z_over = pulp.LpVariable("z_over", cat="Continuous")
-            z_under = pulp.LpVariable("z_under", cat="Continuous")
+            y_over = pulp.LpVariable.dicts("y_over", range(num_staff), cat="Continuous")
+            y_under = pulp.LpVariable.dicts(
+                "y_under", range(num_staff), cat="Continuous"
+            )
             # 目的関数の定義
             prob += pulp.lpSum(
                 [
                     # スタッフ希望の下限より少ない場合のペナルティ
-                    penalty_min * z_under
+                    penalty_min * [y_under[i] for i in range(num_staff)]
                     # スタッフ希望の上限より多い場合のペナルティ
-                    + penalty_max * z_over
+                    + penalty_max * [y_over[i] for i in range(num_staff)]
                 ]
             )
             # 制約条件の定義
-            # z = max(x, 0)の表現はyをbinary, zをcontinuousとして以下のように表現できる
-            # x ≥ -M(1-y)
-            # x ≤ My
-            # z ≥ 0
-            # z ≥ x
-            # z ≤ x + M(1-y)
-            BigM = 1000
+            # y = max(x, 0)はyの最小化が目的関数の場合はyをcontinuousとして以下のように表現できる
+            # x - y <= 0
+            # y >= 0
             for i in range(num_staff):
                 # 希望最小出勤日数より少ない場合のペナルティ
-                prob += staff_data.loc[i, "希望最小出勤日数"] - pulp.lpSum(
-                    [x[i][j] for j in range(num_slot)]
-                ) >= -BigM * (1 - y_under[i])
                 prob += (
                     staff_data.loc[i, "希望最小出勤日数"]
                     - pulp.lpSum([x[i][j] for j in range(num_slot)])
-                    <= BigM * y_under[i]
+                    - y_under[i]
+                    <= 0
                 )
-                prob += z_under >= 0
-                prob += z_under >= staff_data.loc[i, "希望最小出勤日数"] - pulp.lpSum(
-                    [x[i][j] for j in range(num_slot)]
-                )
-                prob += z_under <= staff_data.loc[i, "希望最小出勤日数"] - pulp.lpSum(
-                    [x[i][j] for j in range(num_slot)]
-                ) + BigM * (1 - y_under[i])
+                prob += y_under[i] >= 0
+
                 # 希望最大出勤日数より多い場合のペナルティ
-                prob += pulp.lpSum([x[i][j] for j in range(num_slot)]) - staff_data.loc[
-                    i, "希望最大出勤日数"
-                ] >= -BigM * (1 - y_over[i])
                 prob += (
                     pulp.lpSum([x[i][j] for j in range(num_slot)])
                     - staff_data.loc[i, "希望最大出勤日数"]
-                    <= BigM * y_over[i]
+                    - y_over[i]
+                    <= 0
                 )
-                prob += z_over >= 0
-                prob += (
-                    z_over
-                    >= pulp.lpSum([x[i][j] for j in range(num_slot)])
-                    - staff_data.loc[i, "希望最大出勤日数"]
-                )
-                prob += z_over <= pulp.lpSum(
-                    [x[i][j] for j in range(num_slot)]
-                ) - staff_data.loc[i, "希望最大出勤日数"] + BigM * (1 - y_over[i])
+                prob += y_over[i] >= 0
+
             # 各スロットの必要人数
             for j in range(num_slot):
                 prob += (
                     pulp.lpSum([x[i][j] for i in range(num_staff)])
                     >= slot_data.loc[j, "出勤人数"]
                 )
+
             # 責任者の人数の制約
             for j in range(num_slot):
                 prob += (
@@ -162,9 +143,11 @@ with tab1:
             # 最適化問題を解く
             prob.solve()
             st.markdown("## 最適化結果")
+
             # 最適化結果の出力
             st.write("Status:", pulp.LpStatus[prob.status])
             st.write("Optimal Value:", pulp.value(prob.objective))
+
             # 最適解の出力をpandas DataFrameに格納
             x_ans = [
                 [int(x[i][j].value()) for j in range(num_slot)]
@@ -173,6 +156,7 @@ with tab1:
             shift_schedule = pd.DataFrame(
                 x_ans, index=staff_data["スタッフID"], columns=slot_data["日付"]
             )
+
             st.markdown("## シフト表")
             st.table(shift_schedule)
 
