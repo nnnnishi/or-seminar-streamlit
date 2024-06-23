@@ -32,4 +32,4 @@ https://smms.kktcs.co.jp/smms2/event/orsj/43
 - Streamlit Community Cloud
 https://streamlit.io/
 - Community Cloudへアップロードしたシフトスケジューリングアプリの例
-https://or-seminor-shift.streamlit.app/
+https://or-seminar-shift.streamlit.app/
