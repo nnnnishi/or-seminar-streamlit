@@ -57,6 +57,7 @@ with tab3:
         st.write("カレンダー情報をアップロードしてください")
     if staff_file is not None and calendar_file is not None:
         staff_penalty = {}
+        # スタッフごとの希望違反のペナルティをStreamlitのレバーで設定
         for i, row in staff_data.iterrows():
             staff_penalty[row["スタッフID"]] = st.slider(
                 f"{row['スタッフID']}の希望違反ペナルティ",
@@ -65,6 +66,7 @@ with tab3:
                 50,  # デフォルト値は50
                 key=row["スタッフID"],
             )
+        # 希望休暇ペナルティをStreamlitのレバーで設定
         penalty_off = st.slider("希望休暇ペナルティ", 0, 100, 50)
         optimize_button = st.button("最適化実行")
         if optimize_button:
