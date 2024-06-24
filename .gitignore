@@ -3,3 +3,4 @@
 .streamlit
 .venv
 __pycache__
+.devcontainer
