@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pulp
+from ShiftScheduler import ShiftScheduler  # ShiftSchedulerクラスをインポート
 
 # タイトル
 st.title("シフトスケジューリングアプリ")
@@ -20,7 +21,7 @@ with tab1:
         st.markdown("## カレンダー情報")
         calendar_data = pd.read_csv(calendar_file)
         st.table(calendar_data)
-        
+
 with tab2:
     if staff_file is None:
         st.write("スタッフ情報をアップロードしてください")
@@ -37,91 +38,23 @@ with tab3:
     if staff_file is not None and calendar_file is not None:
         optimize_button = st.button("最適化実行")
         if optimize_button:
-            # スタッフ数とシフト数
-            num_staff = staff_data.shape[0]
-            num_slot = calendar_data.shape[0]
+            # ShiftSchedulerクラスのインスタンスを作成
+            shift_scheduler = ShiftScheduler()
+            # データをセット
+            shift_scheduler.set_data(staff_data, calendar_data)
+            # モデルを構築
+            shift_scheduler.build_model()
+            # 最適化を実行
+            shift_scheduler.solve()
 
-            # 問題の定義
-            prob = pulp.LpProblem("Shift_Scheduling", pulp.LpMinimize)
-
-            # 変数の定義
-            x = pulp.LpVariable.dicts(
-                "x", (range(num_staff), range(num_slot)), cat="Binary"
-            )
-            y_over = pulp.LpVariable.dicts("y_over", range(num_staff), cat="Continuous")
-            y_under = pulp.LpVariable.dicts(
-                "y_under", range(num_staff), cat="Continuous"
-            )
-            # 目的関数の定義
-            prob += pulp.lpSum(
-                [
-                    # スタッフ希望の下限より少ない場合のペナルティ
-                    1 * [y_under[i] for i in range(num_staff)]
-                    # スタッフ希望の上限より多い場合のペナルティ
-                    + 1 * [y_over[i] for i in range(num_staff)]
-                ]
-            )
-            # 制約条件の定義
-            # y = max(x, 0)はyの最小化が目的関数の場合はyをcontinuousとして以下のように表現できる
-            # x - y <= 0
-            # y >= 0
-            for i in range(num_staff):
-                # 希望最小出勤日数より少ない場合のペナルティ
-                prob += (
-                    staff_data.loc[i, "希望最小出勤日数"]
-                    - pulp.lpSum([x[i][j] for j in range(num_slot)])
-                    - y_under[i]
-                    <= 0
-                )
-                prob += y_under[i] >= 0
-
-                # 希望最大出勤日数より多い場合のペナルティ
-                prob += (
-                    pulp.lpSum([x[i][j] for j in range(num_slot)])
-                    - staff_data.loc[i, "希望最大出勤日数"]
-                    - y_over[i]
-                    <= 0
-                )
-                prob += y_over[i] >= 0
-
-            # 各スロットの必要人数
-            for j in range(num_slot):
-                prob += (
-                    pulp.lpSum([x[i][j] for i in range(num_staff)])
-                    >= calendar_data.loc[j, "出勤人数"]
-                )
-
-            # 責任者の人数の制約
-            for j in range(num_slot):
-                prob += (
-                    pulp.lpSum(
-                        [
-                            x[i][j] * staff_data.loc[i, "責任者フラグ"]
-                            for i in range(num_staff)
-                        ]
-                    )
-                    >= calendar_data.loc[j, "責任者人数"]
-                )
-
-            # 最適化問題を解く
-            prob.solve()
             st.markdown("## 最適化結果")
 
             # 最適化結果の出力
-            st.write("実行ステータス:", pulp.LpStatus[prob.status])
-            st.write("最適値:", pulp.value(prob.objective))
-
-            # 最適解の出力をpandas DataFrameに格納
-            x_ans = [
-                [int(x[i][j].value()) for j in range(num_slot)]
-                for i in range(num_staff)
-            ]
-            shift_schedule = pd.DataFrame(
-                x_ans, index=staff_data["スタッフID"], columns=calendar_data["日付"]
-            )
+            st.write("実行ステータス:", pulp.LpStatus[shift_scheduler.status])
+            st.write("最適値:", pulp.value(shift_scheduler.model.objective))
 
             st.markdown("## シフト表")
-            st.table(shift_schedule)    
+            st.table(shift_scheduler.sch_df)
 
     st.markdown("## シフト数の充足確認")
     st.markdown("## スタッフの希望の確認")

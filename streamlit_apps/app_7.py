@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pulp
+from ShiftScheduler_7 import ShiftScheduler
 
 # タイトル
 st.title("シフトスケジューリングアプリ")
@@ -20,7 +21,7 @@ with tab1:
         st.markdown("## カレンダー情報")
         calendar_data = pd.read_csv(calendar_file)
         st.table(calendar_data)
-        
+
 with tab2:
     if staff_file is None:
         st.write("スタッフ情報をアップロードしてください")
@@ -35,110 +36,53 @@ with tab3:
     if calendar_file is None:
         st.write("カレンダー情報をアップロードしてください")
     if staff_file is not None and calendar_file is not None:
-        penalty_min = st.slider("勤務時間下限ペナルティ", 0, 100, 50)
-        penalty_max = st.slider("勤務時間上限ペナルティ", 0, 100, 50)
+        # スタッフごとの希望違反のペナルティをStreamlitのレバーで設定
+        staff_penalty = {}
+        for i, row in staff_data.iterrows():
+            staff_penalty[row["スタッフID"]] = st.slider(
+                f"{row['スタッフID']}の希望違反ペナルティ",
+                0,  # 最小値
+                100,  # 最大値
+                50,  # デフォルト値は50
+                key=row["スタッフID"],
+            )
         optimize_button = st.button("最適化実行")
         if optimize_button:
-            # スタッフ数とシフト数
-            num_staff = staff_data.shape[0]
-            num_slot = calendar_data.shape[0]
+            # ShiftSchedulerクラスのインスタンスを作成
+            shift_scheduler = ShiftScheduler()
+            # データをセット
+            shift_scheduler.set_data(staff_data, calendar_data, staff_penalty)
+            # モデルを構築
+            shift_scheduler.build_model()
+            # 最適化を実行
+            shift_scheduler.solve()
 
-            # 問題の定義
-            prob = pulp.LpProblem("Shift_Scheduling", pulp.LpMinimize)
-
-            # 変数の定義
-            x = pulp.LpVariable.dicts(
-                "x", (range(num_staff), range(num_slot)), cat="Binary"
-            )
-            y_over = pulp.LpVariable.dicts("y_over", range(num_staff), cat="Continuous")
-            y_under = pulp.LpVariable.dicts(
-                "y_under", range(num_staff), cat="Continuous"
-            )
-            # 目的関数の定義
-            prob += pulp.lpSum(
-                [
-                    # スタッフ希望の下限より少ない場合のペナルティ
-                    penalty_min * [y_under[i] for i in range(num_staff)]
-                    # スタッフ希望の上限より多い場合のペナルティ
-                    + penalty_max * [y_over[i] for i in range(num_staff)]
-                ]
-            )
-            # 制約条件の定義
-            # y = max(x, 0)はyの最小化が目的関数の場合はyをcontinuousとして以下のように表現できる
-            # x - y <= 0
-            # y >= 0
-            for i in range(num_staff):
-                # 希望最小出勤日数より少ない場合のペナルティ
-                prob += (
-                    staff_data.loc[i, "希望最小出勤日数"]
-                    - pulp.lpSum([x[i][j] for j in range(num_slot)])
-                    - y_under[i]
-                    <= 0
-                )
-                prob += y_under[i] >= 0
-
-                # 希望最大出勤日数より多い場合のペナルティ
-                prob += (
-                    pulp.lpSum([x[i][j] for j in range(num_slot)])
-                    - staff_data.loc[i, "希望最大出勤日数"]
-                    - y_over[i]
-                    <= 0
-                )
-                prob += y_over[i] >= 0
-
-            # 各スロットの必要人数
-            for j in range(num_slot):
-                prob += (
-                    pulp.lpSum([x[i][j] for i in range(num_staff)])
-                    >= calendar_data.loc[j, "出勤人数"]
-                )
-
-            # 責任者の人数の制約
-            for j in range(num_slot):
-                prob += (
-                    pulp.lpSum(
-                        [
-                            x[i][j] * staff_data.loc[i, "責任者フラグ"]
-                            for i in range(num_staff)
-                        ]
-                    )
-                    >= calendar_data.loc[j, "責任者人数"]
-                )
-
-            # 最適化問題を解く
-            prob.solve()
             st.markdown("## 最適化結果")
 
             # 最適化結果の出力
-            st.write("実行ステータス:", pulp.LpStatus[prob.status])
-            st.write("最適値:", pulp.value(prob.objective))
-
-            # 最適解の出力をpandas DataFrameに格納
-            x_ans = [
-                [int(x[i][j].value()) for j in range(num_slot)]
-                for i in range(num_staff)
-            ]
-            shift_schedule = pd.DataFrame(
-                x_ans, index=staff_data["スタッフID"], columns=calendar_data["日付"]
-            )
+            st.write("実行ステータス:", pulp.LpStatus[shift_scheduler.status])
+            st.write("最適値:", pulp.value(shift_scheduler.model.objective))
 
             st.markdown("## シフト表")
-            st.table(shift_schedule)    
-    
+            st.table(shift_scheduler.sch_df)
+
             st.markdown("## シフト数の充足確認")
             # 各スタッフの合計シフト数をstreamlitのbar chartで表示
-            shift_sum = shift_schedule.sum(axis=1)
+            shift_sum = shift_scheduler.sch_df.sum(axis=1)
             st.bar_chart(shift_sum)
 
             st.markdown("## スタッフの希望の確認")
             # 各スロットの合計シフト数をstreamlitのbar chartで表示
-            shift_sum_slot = shift_schedule.sum(axis=0)
+            shift_sum_slot = shift_scheduler.sch_df.sum(axis=0)
             st.bar_chart(shift_sum_slot)
 
             st.markdown("## 責任者の合計シフト数の充足確認")
             # shift_scheduleに対してstaff_dataをマージして責任者の合計シフト数を計算
             shift_schedule_with_staff_data = pd.merge(
-                shift_schedule, staff_data, left_index=True, right_on="スタッフID"
+                shift_scheduler.sch_df,
+                staff_data,
+                left_index=True,
+                right_on="スタッフID",
             )
             shift_chief_only = shift_schedule_with_staff_data.query("責任者フラグ == 1")
             shift_chief_only = shift_chief_only.drop(
@@ -151,11 +95,11 @@ with tab3:
             )
             shift_chief_sum = shift_chief_only.sum(axis=0)
             st.bar_chart(shift_chief_sum)
-            
+
             # シフト表のダウンロード
             st.download_button(
                 label="シフト表をダウンロード",
-                data=shift_schedule.to_csv().encode('utf-8'),
-                file_name='output.csv',
-                mime='text/csv',
+                data=shift_scheduler.sch_df.to_csv().encode("utf-8"),
+                file_name="output.csv",
+                mime="text/csv",
             )
