@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pulp
-from ShiftScheduler_8_2 import ShiftScheduler
+from src.shift_scheduler.ShiftScheduler_8_2 import ShiftScheduler
 
 # タイトル
 st.title("シフトスケジューリングアプリ")

@@ -3,7 +3,7 @@ import pandas as pd
 import pulp
 import matplotlib.pyplot as plt
 import japanize_matplotlib
-from ShiftScheduler import ShiftScheduler
+from src.shift_scheduler.ShiftScheduler import ShiftScheduler
 
 # タイトル
 st.title("シフトスケジューリングアプリ")
