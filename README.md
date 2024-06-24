@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ## プログラムの実行例
 以下のコマンドでアプリを実行します
 ```bash
-streamlit run app.py
+streamlit run streamlit/app_8_2.py
 ```
 
 ## アプリの概要
