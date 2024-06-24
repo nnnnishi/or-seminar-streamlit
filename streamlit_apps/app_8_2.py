@@ -89,7 +89,7 @@ with tab3:
 
             # 最適化結果の出力
             st.write("実行ステータス:", pulp.LpStatus[shift_scheduler.status])
-            st.write("最適値:", pulp.value(shift_scheduler.model.objective))
+            st.write("目的関数値:", pulp.value(shift_scheduler.model.objective))
 
             st.markdown("## シフト表")
             st.table(shift_scheduler.sch_df)
