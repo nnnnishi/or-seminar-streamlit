@@ -1,9 +1,16 @@
-import streamlit as st
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import japanize_matplotlib
+import matplotlib.pyplot as plt
 import pandas as pd
 import pulp
-import matplotlib.pyplot as plt
-import japanize_matplotlib
+import streamlit as st
+
 from src.shift_scheduler.ShiftScheduler import ShiftScheduler
+
 
 # タイトル
 st.title("シフトスケジューリングアプリ")

@@ -1,6 +1,12 @@
-import streamlit as st
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 import pulp
+import streamlit as st
+
 from src.shift_scheduler.ShiftScheduler_7 import ShiftScheduler
 
 # タイトル
