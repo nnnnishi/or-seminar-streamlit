@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import pulp
 
 # タイトル
 st.title("シフトスケジューリングアプリ")
@@ -20,7 +19,7 @@ with tab1:
         st.markdown("## カレンダー情報")
         calendar_data = pd.read_csv(calendar_file)
         st.table(calendar_data)
-        
+
 with tab2:
     if staff_file is None:
         st.write("スタッフ情報をアップロードしてください")
