@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import japanize_matplotlib
+import japanize_matplotlib  # noqa: F401
 import matplotlib.pyplot as plt
 import pandas as pd
 import pulp
